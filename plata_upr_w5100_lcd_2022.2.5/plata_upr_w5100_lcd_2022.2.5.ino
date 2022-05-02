@@ -1,0 +1,244 @@
+/************************************************* ************************************************** ******
+Итоговая программа:
+Этот программа управляет платой eth w5100 и lcd
+**
+Версия 2022.2.3 - год. месяц.номер версии
+Изменения:
+lcd не используем в этой программе.
+Подключаем 2 платы вместе
+Сперва пробую подключение к w5100
+**********************************************************************************************************/
+/**********************************************************************************************************
+ Подгружаем библиотеки
+/**********************************************************************************************************/
+#include <SPI.h>            //библиотека работы с SPI
+#include <Ethernet.h>       //библиотека с W5100
+//#include "Wire.h"           //библиотека для работы по шине I2C
+#include <SoftwareSerial.h> //библиотека обращения по порту serial
+//#include "AltSoftSerial.h"  //аналог софтсериал - для работы с блуту модулем
+//#include "LiquidCrystal_I2C.h"//Библиотека работы с ЖК-дисплеем
+#include "softUART.h"       //библиотека для отправки/приема данных от др платы
+#include "GBUS.h"           //библиотека для отправки/приема данных от др платы
+/**********************************************************************************************************/
+// Определяем константы
+/**********************************************************************************************************/
+// Определяем переменные
+/**********************************************************************************************************/
+/******************данные eth-модуля w5100**************/
+// Enter a MAC address for your controller below.
+// Newer Ethernet shields have a MAC address printed on a sticker on the shield
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+
+// if you don't want to use DNS (and reduce your sketch size)
+// use the numeric IP instead of the name for the server:
+//IPAddress server(74,125,232,128);  // numeric IP for Google (no DNS)
+char server[] = "vsroom.ru";    // name address for Google (using DNS)
+
+// Set the static IP address to use if the DHCP fails to assign
+IPAddress ip(192, 168, 1, 177);
+IPAddress myDns(8, 8, 8, 8);
+String strData = "";
+boolean recievedFlag;
+/*********************************************************************************************************/
+// Объявляем объекты
+/**********************************************************************************************************/
+//AltSoftSerial altSerial;    // инициализируем объект алтсериал для блуту
+//SoftwareSerial mySerial(8,9); // RX, TX
+SoftwareSerial mySerial(8,9); // RX, TX
+//LiquidCrystal_I2C lcd(0x27, 16, 2);  // адрес, столбцов, строк
+// делаем только приёмником
+//softUART<4, GBUS_RX> UART(1000); // пин 4, скорость 1000
+//GBUS bus(&UART, 5, 20); // обработчик UART, адрес 5, буфер 20 байт //прием
+/*struct myStruct {
+  byte val_b;
+  int val_i;
+  long val_l;
+  float val_f;
+  char t[1];
+};*/
+/*********************************************************************************************************/
+// Инициализируем объект eth
+// Initialize the Ethernet client library
+// with the IP address and port of the server
+// that you want to connect to (port 80 is default for HTTP):
+EthernetClient client;
+// Variables to measure the speed
+unsigned long beginMicros, endMicros;
+unsigned long byteCount = 0;
+bool printWebData = true;  // set to false for better speed measurement
+/*********************************************************************************************************/
+void setup() {
+  // put your setup code here, to run once:
+  //готовим вывод на LCD
+//  lcd.init();           // инициализация
+//  lcd.backlight();      // включить подсветку
+/***********************************************/
+// Open serial communications and wait for port to open:
+  Serial.begin(9600);
+  mySerial.begin(4000);
+  while (!Serial) {;} // wait for serial port to connect. Needed for native USB port only
+  delay(2000);
+//коннектимся к dhcp
+// start the Ethernet connection:
+  Serial.println("Initialize Ethernet with DHCP:");
+  mySerial.write("Initialize DHCP:");
+//  lcd.setCursor(0, 0);  // столбец 1 строка 0
+//  lcd.print("Initialize DHCP:");
+ //String string0 = "Initialize DHCP:";
+ delay(2000);
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP"); //lcd.clear(); lcd.setCursor(0, 0); lcd.print("Failed DHCP:");
+    // Check for Ethernet hardware present
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+      Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+//      lcd.clear(); lcd.setCursor(0, 0); lcd.print("Ethernetnotfound");
+      while (true) {
+        delay(1); // do nothing, no point running without Ethernet hardware
+      }
+    }
+    if (Ethernet.linkStatus() == LinkOFF) {
+      Serial.println("Ethernet cable is not connected.");
+//      lcd.clear(); lcd.setCursor(0, 0); lcd.print("Cable not connec");
+    }
+    // try to congifure using IP address instead of DHCP:
+    Ethernet.begin(mac, ip, myDns);
+  } else {
+    Serial.print("  DHCP assigned IP ");
+ //   lcd.clear(); lcd.setCursor(0, 0); lcd.print("DHCP assigned IP");
+    mySerial.print("DHCP assigned IP");
+    Serial.println(Ethernet.localIP());
+
+    delay(2000); // do nothing, no point running without Ethernet hardware
+//    lcd.setCursor(0, 1); lcd.print(Ethernet.localIP());
+//    mySerial.write(strData);
+  String strData = DisplayAddress(Ethernet.localIP());  //функция перевода типа IP в String
+   Serial.println(strData);
+    mySerial.print(strData);
+  }
+/*************Подключаемся к серверу***************************/
+   delay(2000);  
+  Serial.print("connecting to "); 
+  String strDataSer = "Connecting to \n" + String(server);
+//  mySerial.print("Connecting to"); delay(2000);//lcd.clear(); lcd.setCursor(0, 0); lcd.print("Connecting to ");
+  mySerial.print(strDataSer); delay(2000);
+  Serial.print(server); //mySerial.print(server); delay(2000);//lcd.setCursor(0, 1); lcd.print(server);
+  Serial.println("...");
+  // if you get a connection, report back via serial:
+  if (client.connect(server, 80)) {
+    Serial.print("connected to "); //mySerial.print("Connected"); delay(2000);
+    String strData_ = "connected to \n" + DisplayAddress(client.remoteIP());  //функция перевода типа IP в String
+    mySerial.print(strData_); delay(2000);
+    Serial.println(client.remoteIP());
+    // Make a HTTP request:
+    client.println("GET https://vsroom.ru/index.php?getDataTime=1 HTTP/1.1");
+    //client.println("https://vsroom.ru/index.php?dataput=1&TempPlatyLM75=25.50&TempBMP280=35&PressureBMP280=760 HTTP/1.1");
+    client.println("Host: vsroom.ru");
+    client.println("Connection: close");
+    client.println();
+  } else {
+    // if you didn't get a connection to the server:
+    Serial.println("connection failed");
+  }
+
+//delay(1000);
+
+while(client.connected()) 
+{
+//  lcd.clear(); lcd.setCursor(0, 0); lcd.print("Connected ");
+  delay(1000);
+   if(client.available())
+   {
+      String c = client.readString(); //Serial.println(c);  
+      int val = c.indexOf("getDataTime=");
+      if(c.indexOf("getDataTime=") >0) //indexOf или contains
+      {
+          //тут условия для выполнения действий Ардуиной, если найдено OK=1
+          //Serial.print("val_getDataTime="); Serial.println(val);
+          String itogStr = "timestamp: \n" + c.substring(227, 237); //получили timestamp
+          mySerial.print("Get data:"); delay(2000); mySerial.print(itogStr); delay(2000);
+//          uint32_t timestamp_ = itogStr.toInt();
+//          Serial.print("itogStr="); Serial.println(itogStr);
+//          Serial.print("timestamp_="); Serial.println(timestamp_);
+//          lcd.clear(); lcd.setCursor(0, 0); lcd.print("Time:");
+//          lcd.setCursor(0, 1); lcd.print(timestamp_);
+       }
+   }
+  
+  /* int len = client.available();
+    if (len > 0) {
+    char c = client.read();
+      Serial.print("Вывожу время "); Serial.println(c); // show in the serial monitor (slows some boards)
+      lcd.clear(); lcd.setCursor(0, 0); lcd.print(c);*/
+   // }
+ //   byteCount = byteCount + len;
+    }
+/**************************************************************/
+//выводим на LCD
+//  lcd.init();           // инициализация
+//  lcd.backlight();      // включить подсветку  
+  // строки для вывода
+/*  char s1[] = "Hello, world!";
+  char s2[] = "GyverKIT";
+  lcd.setCursor(1, 0);
+  for (int i = 0; i < strlen(s1); i++) {
+    lcd.print(s1[i]);
+    delay(100);
+  }
+  lcd.setCursor(4, 1);
+  for (int i = 0; i < strlen(s2); i++) {
+    lcd.print(s2[i]);
+    delay(100);
+  }*/
+  delay(5000);
+}
+
+void loop() {
+
+  while (mySerial.available() > 0) {         // ПОКА есть что то на вход    
+    strData += (char)mySerial.read();        // забиваем строку принятыми данными
+    recievedFlag = true;                   // поднять флаг что получили данные
+    delay(2);                              // ЗАДЕРЖКА. Без неё работает некорректно!
+  }
+    if (recievedFlag) {                      // если данные получены
+    if (client.connect(server, 80)) {
+    strData = strData + " HTTP/1.1"; 
+    Serial.println(strData);               // вывести   
+    client.println(strData);
+//    client.println("https://vsroom.ru/index.php?dataput=1&TempPlatyLM75=25.50&TempBMP280=35&PressureBMP280=760 HTTP/1.1");
+    client.println("Host: vsroom.ru");
+    client.println("Connection: close");
+    client.println(); 
+    strData = "";                          // очистить
+    recievedFlag = false;                  // опустить флаг
+    }else{Serial.println("connection failed");};
+    if(client.available())
+   {
+      String c = client.readString(); //Serial.println(c);
+      Serial.println(c);
+   }
+  }
+  
+/*  
+  // put your main code here, to run repeatedly:
+  bus.tick();
+  if (bus.gotData()) {
+    // выводим данные
+    myStruct data;
+    bus.readData(data);
+
+    Serial.println(data.val_b);
+    Serial.println(data.val_i);
+    Serial.println(data.val_l);
+    Serial.println(data.val_f);
+    Serial.println(data.t);
+    Serial.println();
+  }*/
+}
+
+String DisplayAddress(IPAddress address)
+{
+ return String(address[0]) + "." + 
+        String(address[1]) + "." + 
+        String(address[2]) + "." + 
+        String(address[3]);
+}
