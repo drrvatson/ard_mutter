@@ -1,6 +1,7 @@
 /**********************************************************************************************************
 Версия 2022.3.3 - год. месяц.номер версии 30/03/2022
 Изменения:
+-ввел переменную давления для отправки на основную плату
 -пробую автоподключение
 -подключили блу ту
 - подключили модуль 
@@ -36,6 +37,7 @@ boolean blueDataFlag;       //флаг получения данных с блу
 uint32_t myTimerStat2 = 0;
 String strData = "";
 String tanya = "";       //температура из датчика
+String panya = "";       //давление из датчика
 boolean recievedFlag;       //флаг получения данных
 uint32_t timeForPodkl = 0;  //таймер подключения блуту
 /**********************************************************************************************************
@@ -146,7 +148,8 @@ if (millis() - timeForPodkl >= 10000) {
         Serial.print("tempanya: ");Serial.println(tanya);
         altSerial.println(tanya);
         delay(5000);
-        altSerial.println(htu.getHumidity());      
+        panya = "panya=" + String(htu.getHumidity());
+        altSerial.println(panya);      
       }
       timeForPodkl = millis();
 }
