@@ -1,6 +1,7 @@
 /**********************************************************************************************************
-Версия 2022.3.3 - год. месяц.номер версии 30/03/2022
+Версия 2022.6.1 - год. месяц.номер версии 22/06/2022
 Изменения:
+-чистка от комментариев черновиков
 -ввел переменную давления для отправки на основную плату
 -пробую автоподключение
 -подключили блу ту
@@ -101,40 +102,12 @@ void loop() {
   }
   if (blueDataFlag) { //если данные прилетели из блуту
         Serial.print("Исходник с блуту char: ");Serial.println(bufferalalt);     
- //       if (strcmp(bufferalalt, "STAT01") == 0) {statconnector = true;};
- //       if (strcmp(bufferalalt, "STAT00") == 0) {statconnector = false; passblue = false; connectorOk = false;};
- //       if (strcmp(bufferalalt, PASSBLUE) == 0) {passblue = true; altSerial.print("passOk");};
- //       Serial.print("statconnector: ");Serial.println(statconnector);
- //       Serial.print("passblue: ");Serial.println(passblue);
-/*        if ((strcmp(bufferalalt, "trRoom") == 0) && (connectorOk == true)) {
-          celsius_ = (float)temper.getTemperatue();//получаем данные температуры
-          altSerial.print("Температура комнаты интегрированного датчика: "); altSerial.println(celsius_);
-        }; */
         memset(bufferalalt, 0, strlen(bufferalalt)); //я так очищаю буфер, каждую ячейку
         blueDataFlag = false;
       }
 /***************************************************************/
 //проверяем статус подключения блуту
 /***************************************************************/
- /*   if (millis() - myTimerStat >= 11000) {
-      altSerial.print("AT+STAT\r\n");//так и не понятно. что это и для чего.
-      //проверили статус и все. Зачем каждые 11 сек проверять статус подключения к блуту
-      //Оказывается этот код надо, чтобы модуль возращал статус, и мы по нему изменяли соответсвующие переменные
-      myTimerStat = millis();
-    }*/
-
-/*      if (millis() - myTimerPass >= 12000) {                     //каждые 12 сек
-        if (connectorOk == false){
-          if ((statconnector == true) && (passblue == false)) {  //смотрим, что к блуту подключились, но что с паролем?
-//прошло уже 2 по 12 сек. метка стала 2. Если пароль не прошел, то устройство отключается:
-            if (timeMetkapass >= 2) {
-              altSerial.print("AT+DISC\r\n"); timeMetkapass = 0; connectorOk = false;}else{
-              timeMetkapass++;};
-          }
-          if ((statconnector == true) && (passblue == true)) {connectorOk = true;};
-        }        
-        myTimerPass = millis();
-      }*/
 
 if (millis() - timeForPodkl >= 10000) {
       if (htu.readTick()) {
@@ -149,6 +122,7 @@ if (millis() - timeForPodkl >= 10000) {
         altSerial.println(tanya);
         delay(5000);
         panya = "panya=" + String(htu.getHumidity());
+        Serial.print("panya=: ");Serial.println(panya);
         altSerial.println(panya);      
       }
       timeForPodkl = millis();
