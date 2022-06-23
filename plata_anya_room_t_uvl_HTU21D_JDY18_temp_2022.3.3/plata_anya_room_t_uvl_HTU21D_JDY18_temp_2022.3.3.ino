@@ -53,40 +53,32 @@ GyverHTU21D htu;            // библиотека работы с модуле
 
 void setup() {
   Serial.begin(9600);
-  htu.begin();        // запустить датчик
-  
+  htu.begin();          // запустить датчик  
   Serial.begin(9600);
-
-  while (!Serial) { }; // wait for serial port to connect. Needed for native USB port only
   altSerial.begin(9600);
-}                    //end setup
+
+  while (!Serial) { };  // wait for serial port to connect. Needed for native USB port only
+  
+}                       //end setup
 
 void loop() {
-/*  // функция опрашивает датчик по своему таймеру
-  if (htu.readTick()) {
-    // можно забирать значения здесь или в другом месте программы
-    Serial.println(htu.getTemperature());
-    Serial.println(htu.getHumidity());
-    Serial.println();
-  }
-  delay(2000);*/
-    while (Serial.available() > 0) {       // ПОКА есть что то на вход    
+    while (Serial.available() > 0) {       // ПОКА есть что то на вход с USB-порта    
     strData += (char)Serial.read();        // забиваем строку принятыми данными
     recievedFlag = true;                   // поднять флаг что получили данные
     delay(2);                              // ЗАДЕРЖКА. Без неё работает некорректно!
   }
   if (recievedFlag) {
-    Serial.println(strData);
-    altSerial.print(strData);              //так и не понятно. что это и для чего. -
-//так понял, что это перенаправление с сериф порта на блуту    
-    strData = "";                          // очистить
-    recievedFlag = false;                  // опустить флаг
+    Serial.println(strData);               // что пришло на порт. выводится на экран для контроля
+    altSerial.print(strData);              // что пришло с порта перенаправляется на порт
+    
+    strData = "";                          // очистить полученные данные
+    recievedFlag = false;                  // опустить флаг, показывающий что пришли данные
   }
   /**********************************************************************/
 //Работаем с блуту - подключаем, проверяем авторизацию - переписываю код
 /**********************************************************************/  
 
-  while (altSerial.available() > 0) {     //смотрим поступало ли что по блу-ту
+  /*while (altSerial.available() > 0) {     //смотрим поступало ли что по блу-ту
         buffIntAlt = altSerial.read();//считали данные из блуту в инте
 //        Serial.print("buffIntAlt: ");Serial.println(buffIntAlt);
         int lengthBuf = strlen(bufferalalt);//опеределяем заполненность буфера данных из блуту, чтобы не было больше максимального
@@ -104,27 +96,23 @@ void loop() {
         Serial.print("Исходник с блуту char: ");Serial.println(bufferalalt);     
         memset(bufferalalt, 0, strlen(bufferalalt)); //я так очищаю буфер, каждую ячейку
         blueDataFlag = false;
-      }
+      } */
 /***************************************************************/
 //проверяем статус подключения блуту
 /***************************************************************/
 
-if (millis() - timeForPodkl >= 10000) {
+if (millis() - timeForPodkl >= 15000) {
+
+      altSerial.print("AT+CONN200509210675\r\n");//соед с блуту по Маку 
       if (htu.readTick()) {
-        Serial.print("температура у ани ");Serial.println(htu.getTemperature());
-        delay(5000);     
-      }
-      altSerial.print("AT+CONN200509210675\r\n");//соед с блуту по Маку
-      delay(5000);
-      if (htu.readTick()) {
-        tanya = "tanya=" + String(htu.getTemperature());//получили температуру из аниной комнаты
-        Serial.print("tempanya: ");Serial.println(tanya);
-        altSerial.println(tanya);
-        delay(5000);
+        Serial.print("температура у ани (tanya): ");Serial.println(htu.getTemperature()); delay(50);
+        tanya = "tanya=" + String(htu.getTemperature()); //получили температуру из аниной комнаты
+        altSerial.println(tanya); delay(50);
+        Serial.print("Влажность у ани (panya): ");Serial.println(htu.getHumidity()); delay(50);
         panya = "panya=" + String(htu.getHumidity());
-        Serial.print("panya=: ");Serial.println(panya);
-        altSerial.println(panya);      
+        altSerial.println(panya); delay(50);
       }
+      
       timeForPodkl = millis();
 }
 
