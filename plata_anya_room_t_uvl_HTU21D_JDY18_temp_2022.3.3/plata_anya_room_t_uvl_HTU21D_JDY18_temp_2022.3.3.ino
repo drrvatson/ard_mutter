@@ -1,6 +1,7 @@
 /**********************************************************************************************************
 Версия 2022.7.1 - год. месяц.номер версии 02/03/2022
 Изменения:
+-данные готова. Осталось научить плату засыпать
 -добавил ПИН. который переключает блуту модуль JDY18 в AT-режим
 -чистка от комментариев черновиков
 -ввел переменную давления для отправки на основную плату
@@ -43,8 +44,8 @@ boolean connectorOk = false;
 boolean blueDataFlag;       //флаг получения данных с блуту платы
 uint32_t myTimerStat2 = 0;
 String strData = "";
-String tanya = "";       //температура из датчика
-String panya = "";       //давление из датчика
+String tanya = "";          //температура из датчика
+String panya = "";          //давление из датчика
 boolean recievedFlag;       //флаг получения данных
 uint32_t timeForPodkl = 0;  //таймер подключения блуту
 /**********************************************************************************************************
@@ -68,29 +69,12 @@ void setup() {
 
   while (!Serial) { };  // wait for serial port to connect. Needed for native USB port only
 //  while (!altSerial) { };  // wait for serial port to connect. Needed for native USB port only
-/*  digitalWrite(PINBLUETODISK, HIGH);                     //переводим модуль получения в режим приема AT-команд
-  delay(100);
-  altSerial.print("AT+DISC\r\n");                       //отлючаем бл. если он был подключен
-  delay(100);
-  altSerial.print("AT+RESET\r\n");                      //делаем сброс бл
-  delay(100);
-  digitalWrite(PINBLUETODISK, LOW);  */                  //перевели бл в режим коннектора
+
 }                       //end setup
 
 void loop() {
-  /*  while (Serial.available() > 0) {       // ПОКА есть что то на вход с USB-порта    
-    strData += (char)Serial.read();        // забиваем строку принятыми данными
-    recievedFlag = true;                   // поднять флаг что получили данные
-    delay(2);                              // ЗАДЕРЖКА. Без неё работает некорректно!
-  }
-  if (recievedFlag) {
-    Serial.println(strData);               // что пришло на порт. выводится на экран для контроля
-    altSerial.print(strData);              // что пришло с порта перенаправляется на порт
-    
-    strData = "";                          // очистить полученные данные
-    recievedFlag = false;                  // опустить флаг, показывающий что пришли данные
-  }*/
-  /**********************************************************************/
+
+/**********************************************************************/
 //Работаем с блуту - подключаем, проверяем авторизацию - переписываю код
 /**********************************************************************/  
 
@@ -126,29 +110,25 @@ if (millis() - timeForPodkl >= 15000) {
       digitalWrite(PINBLUETODISK, HIGH);         //переводим блуту модуль в режим подключения
       altSerial.print("AT+CONN200509210675\r\n");//соед с блуту по Маку 
       delay(2);
-     /* if (htu.readTick()) {
+      if (htu.readTick()) {
         Serial.print("Температура датчика Ани (tanya): ");Serial.println(htu.getTemperature()); delay(50);
         tanya = "tanya=" + String(htu.getTemperature()); //получили температуру из аниной комнаты
         altSerial.println(tanya); delay(50);
         Serial.print("Влажность датчика Ани (panya): ");Serial.println(htu.getHumidity()); delay(50);
         panya = "panya=" + String(htu.getHumidity());
         altSerial.println(panya); delay(50);
-      }*/
+//       Serial.print(tanya); Serial.println(panya); 
+      }
       nBlCtd = nBlCtd + 1; Serial.print("счетчик бл ");Serial.println(nBlCtd);
       timeForPodkl = millis();
       
 }
-if (nBlCtd >= 4) {
-  delay(500); 
+if (nBlCtd >= 4) {  
   digitalWrite(PINBLUETODISK, LOW);                     //переводим модуль получения в режим приема AT-команд
-  altSerial.print("AT+DISC\r\n");          //Пробуем разорвать соединение
+  altSerial.print("AT+DISC\r\n");  delay(5);         //Пробуем разорвать соединение
   Serial.println("пробую выкл бл"); 
   nBlCtd = 0;
 }
-
-/*if (nBlCtd >= 8) {
-  //nBlCtd = 0;
-}*/
 
 /***************************************************************/
 //конец проверки статуса подключения блуту

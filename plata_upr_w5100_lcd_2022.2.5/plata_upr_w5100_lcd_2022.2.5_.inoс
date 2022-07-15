@@ -2,9 +2,8 @@
 Итоговая программа:
 Этот программа управляет платой eth w5100 и lcd
 **
-Версия 2022.7.15 - год. месяц.номер версии
+Версия 2022.2.3 - год. месяц.номер версии
 Изменения:
--изменили данные. получ от платы-макета. - шаблон поменялся
 lcd не используем в этой программе.
 Подключаем 2 платы вместе
 Сперва пробую подключение к w5100
@@ -14,12 +13,14 @@ lcd не используем в этой программе.
 /**********************************************************************************************************/
 #include <SPI.h>            //библиотека работы с SPI
 #include <Ethernet.h>       //библиотека с W5100
+//#include "Wire.h"           //библиотека для работы по шине I2C
 #include <SoftwareSerial.h> //библиотека обращения по порту serial
+//#include "AltSoftSerial.h"  //аналог софтсериал - для работы с блуту модулем
+//#include "LiquidCrystal_I2C.h"//Библиотека работы с ЖК-дисплеем
 #include "softUART.h"       //библиотека для отправки/приема данных от др платы
 #include "GBUS.h"           //библиотека для отправки/приема данных от др платы
 /**********************************************************************************************************/
 // Определяем константы
-#define MSFB 120 //
 /**********************************************************************************************************/
 // Определяем переменные
 /**********************************************************************************************************/
@@ -36,10 +37,9 @@ char server[] = "vsroom.ru";    // name address for Google (using DNS)
 // Set the static IP address to use if the DHCP fails to assign
 IPAddress ip(192, 168, 1, 177);
 IPAddress myDns(8, 8, 8, 8);
-String strData = "";
+int8_t strData;
 boolean recievedFlag;
-char bufferalalt[MSFB];
-int8_t buffIntAlt;
+char bufferalalt[120];
 /*********************************************************************************************************/
 // Объявляем объекты
 /**********************************************************************************************************/
@@ -47,6 +47,16 @@ int8_t buffIntAlt;
 //SoftwareSerial mySerial(8,9); // RX, TX
 SoftwareSerial mySerial(8,9); // RX, TX
 //LiquidCrystal_I2C lcd(0x27, 16, 2);  // адрес, столбцов, строк
+// делаем только приёмником
+//softUART<4, GBUS_RX> UART(1000); // пин 4, скорость 1000
+//GBUS bus(&UART, 5, 20); // обработчик UART, адрес 5, буфер 20 байт //прием
+/*struct myStruct {
+  byte val_b;
+  int val_i;
+  long val_l;
+  float val_f;
+  char t[1];
+};*/
 /*********************************************************************************************************/
 // Инициализируем объект eth
 // Initialize the Ethernet client library
@@ -59,7 +69,10 @@ unsigned long byteCount = 0;
 bool printWebData = true;  // set to false for better speed measurement
 /*********************************************************************************************************/
 void setup() {
-
+  // put your setup code here, to run once:
+  //готовим вывод на LCD
+//  lcd.init();           // инициализация
+//  lcd.backlight();      // включить подсветку
 /***********************************************/
 // Open serial communications and wait for port to open:
   Serial.begin(9600);
@@ -70,9 +83,12 @@ void setup() {
 // start the Ethernet connection:
   Serial.println("Initialize Ethernet with DHCP:");
   mySerial.write("Initialize DHCP:");
+//  lcd.setCursor(0, 0);  // столбец 1 строка 0
+//  lcd.print("Initialize DHCP:");
+ //String string0 = "Initialize DHCP:";
  delay(2000);
   if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure Ethernet using DHCP"); //lcd.clear(); lcd.setCursor(0, 0);
+    Serial.println("Failed to configure Ethernet using DHCP"); //lcd.clear(); lcd.setCursor(0, 0); lcd.print("Failed DHCP:");
     // Check for Ethernet hardware present
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
       Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
@@ -89,11 +105,12 @@ void setup() {
     Ethernet.begin(mac, ip, myDns);
   } else {
     Serial.print("  DHCP assigned IP ");
-
+ //   lcd.clear(); lcd.setCursor(0, 0); lcd.print("DHCP assigned IP");
     mySerial.print("DHCP assigned IP");
     Serial.println(Ethernet.localIP());
 
     delay(2000); // do nothing, no point running without Ethernet hardware
+//    lcd.setCursor(0, 1); lcd.print(Ethernet.localIP());
 //    mySerial.write(strData);
   String strData = DisplayAddress(Ethernet.localIP());  //функция перевода типа IP в String
    Serial.println(strData);
@@ -115,7 +132,8 @@ void setup() {
     Serial.println(client.remoteIP());
     // Make a HTTP request:
     client.println("GET https://vsroom.ru/index.php?getDataTime=1 HTTP/1.1");
-    client.println("User-Agent: ARDUINO");  //добавил агента. чтобы сервер не делел 301-перенаправление
+    client.println("User-Agent: ARDUINO");
+    //client.println("https://vsroom.ru/index.php?dataput=1&TempPlatyLM75=25.50&TempBMP280=35&PressureBMP280=760 HTTP/1.1");
     client.println("Host: vsroom.ru");
     client.println("Connection: close");
     client.println();
@@ -123,6 +141,8 @@ void setup() {
     // if you didn't get a connection to the server:
     Serial.println("connection failed");
   }
+
+//delay(1000);
 
 while(client.connected()) 
 {
@@ -139,35 +159,82 @@ while(client.connected())
           //Serial.print("val_getDataTime="); Serial.println(val);
           String itogStr = "timestamp: \n" + c.substring(227, 237); //получили timestamp
           mySerial.print("Get data:"); delay(2000); mySerial.print(itogStr); delay(2000);
+//          uint32_t timestamp_ = itogStr.toInt();
+//          Serial.print("itogStr="); Serial.println(itogStr);
+//          Serial.print("timestamp_="); Serial.println(timestamp_);
+//          lcd.clear(); lcd.setCursor(0, 0); lcd.print("Time:");
+//          lcd.setCursor(0, 1); lcd.print(timestamp_);
        }
    }
-
+  
+  /* int len = client.available();
+    if (len > 0) {
+    char c = client.read();
+      Serial.print("Вывожу время "); Serial.println(c); // show in the serial monitor (slows some boards)
+      lcd.clear(); lcd.setCursor(0, 0); lcd.print(c);*/
+   // }
+ //   byteCount = byteCount + len;
     }
 /**************************************************************/
+//выводим на LCD
+//  lcd.init();           // инициализация
+//  lcd.backlight();      // включить подсветку  
+  // строки для вывода
+/*  char s1[] = "Hello, world!";
+  char s2[] = "GyverKIT";
+  lcd.setCursor(1, 0);
+  for (int i = 0; i < strlen(s1); i++) {
+    lcd.print(s1[i]);
+    delay(100);
+  }
+  lcd.setCursor(4, 1);
+  for (int i = 0; i < strlen(s2); i++) {
+    lcd.print(s2[i]);
+    delay(100);
+  }*/
   delay(5000);
-}               //end setup
+}
 
 void loop() {
 
+/*  while (mySerial.available() > 0) {         // ПОКА есть что то на вход    
+    strData += (char)mySerial.read();        // забиваем строку принятыми данными
+    recievedFlag = true;                   // поднять флаг что получили данные
+    delay(2);                              // ЗАДЕРЖКА. Без неё работает некорректно!
+  }*/
+
 while (mySerial.available() > 0) {
-    buffIntAlt = mySerial.read();
+    strData = mySerial.read();
     int lengthBuf = strlen(bufferalalt);    //опеределяем заполненность буфера данных из блуту, чтобы не было больше максимального
-    if (lengthBuf < MSFB) {
-      if (((buffIntAlt > 33) && (buffIntAlt < 58)) || (buffIntAlt == 61) || ((buffIntAlt > 64) && (buffIntAlt < 91)) || ((buffIntAlt > 96) && (buffIntAlt < 123))) //отсеиваем сторонние символы
-         {
-           bufferalalt[lengthBuf] = (char)buffIntAlt;//записали очередной полученный символ
-         }
+    if (((strData > 33) && (strData < 58)) || (strData == 61) || ((strData > 64) && (strData < 91)) || ((strData > 96) && (strData < 123))) //отсеиваем сторонние символы
+    {
+      bufferalalt[lengthBuf] = (char)buffIntAlt;//записали очередной полученный символ
     }
     recievedFlag = true; //что-то поступило
     delay(2);
 }
 
+/*  while (altSerial.available() > 0) {     //смотрим поступало ли что по блу-ту
+        buffIntAlt = altSerial.read();//считали данные из блуту в инте
+//        Serial.print("buffIntAlt: ");Serial.println(buffIntAlt);
+        int lengthBuf = strlen(bufferalalt);//опеределяем заполненность буфера данных из блуту, чтобы не было больше максимального
+        //bufferalalt
+        if (lengthBuf < MSFB) { //проверка на максимальное значение полученых данных
+          if (((buffIntAlt > 33) && (buffIntAlt < 58)) || (buffIntAlt == 61) || ((buffIntAlt > 64) && (buffIntAlt < 91)) || ((buffIntAlt > 96) && (buffIntAlt < 123))) //отсеиваем сторонние символы
+            {
+              bufferalalt[lengthBuf] = (char)buffIntAlt;//записали очередной полученный символ
+            }
+        }
+        blueDataFlag = true; //что-то поступило
+        delay(2);
+  }*/
+  
     if (recievedFlag) {                      // если данные получены
     if (client.connect(server, 80)) {
-    strData = String(bufferalalt);
-    strData = "GET https://vsroom.ru/index.php?dataput=1" + strData + " HTTP/1.1"; 
+    strData = strData + " HTTP/1.1"; 
     Serial.println(strData);               // вывести   
     client.println(strData);
+//    client.println("https://vsroom.ru/index.php?dataput=1&TempPlatyLM75=25.50&TempBMP280=35&PressureBMP280=760 HTTP/1.1");
     client.println("Host: vsroom.ru");
     client.println("User-Agent: ARDUINO");
     client.println("Connection: close");
@@ -180,9 +247,23 @@ while (mySerial.available() > 0) {
       String c = client.readString(); //Serial.println(c);
       Serial.println(c);
    }
-   memset(bufferalalt, 0, strlen(bufferalalt)); //я так очищаю буфер, каждую ячейку
-   recievedFlag = false;
   }
+  
+/*  
+  // put your main code here, to run repeatedly:
+  bus.tick();
+  if (bus.gotData()) {
+    // выводим данные
+    myStruct data;
+    bus.readData(data);
+
+    Serial.println(data.val_b);
+    Serial.println(data.val_i);
+    Serial.println(data.val_l);
+    Serial.println(data.val_f);
+    Serial.println(data.t);
+    Serial.println();
+  }*/
 }
 
 String DisplayAddress(IPAddress address)
