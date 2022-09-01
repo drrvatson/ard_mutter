@@ -26,7 +26,7 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));   // Turn the LED on (Note that LOW is the voltage level
+  digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level
     byte i;
     byte present = 0;
     byte type_s;
@@ -187,7 +187,7 @@ int get_rssi(String ssid) {
   return ret;
 }
 
-int list_wifi() {
+/*int list_wifi() {
     // set wifi mode
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -206,4 +206,4 @@ int list_wifi() {
     } else
         Serial.println("no networks found");
     return n;
-}
+}*/
